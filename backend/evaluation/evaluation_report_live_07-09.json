@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-09-07T04:33:18.912260+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 16589.33,
+  "p95_latency_ms": 19907,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 89.0,
+  "category_stats": {
+    "city": {
+      "total_cases": 3,
+      "passed_cases": 3,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "city_001",
+      "category": "city",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 87.0,
+      "latency_ms": 19907,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "7c6cfdf29c0e",
+      "review_level": "B",
+      "issues": [
+        "住宿地点位于高桥镇，距离主要景点较远，可能增加通勤时间，但公共交通可达性尚可"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "city_002",
+      "category": "city",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 15190,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "ca8f5f63379c",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "city_003",
+      "category": "city",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 14671,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "88fcf9ac65c6",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    }
+  ]
+}

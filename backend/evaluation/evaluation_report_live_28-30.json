@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-09-07T04:45:02.989534+00:00",
+  "total_cases": 3,
+  "passed_cases": 2,
+  "failed_cases": 1,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 20604.67,
+  "p95_latency_ms": 28371,
+  "average_retry_count": 1.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 86.67,
+  "category_stats": {
+    "boundary": {
+      "total_cases": 2,
+      "passed_cases": 1,
+      "failed_cases": 1,
+      "pass_rate": 0.5
+    },
+    "free_text": {
+      "total_cases": 1,
+      "passed_cases": 1,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "free_text_003",
+      "category": "free_text",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 18098,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "2a0b6a1c6589",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "boundary_001",
+      "category": "boundary",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 15345,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "6c99fcf75978",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "boundary_002",
+      "category": "boundary",
+      "passed": false,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": false,
+      "budget_configured": true,
+      "budget_expected": false,
+      "semantic_score": 85.0,
+      "latency_ms": 28371,
+      "retry_count": 3,
+      "llm_call_count": null,
+      "trace_id": "1d05d3b33b0f",
+      "review_level": "C",
+      "issues": [
+        "人均预算超过容差上限 210 元",
+        "酒店距离市中心约30公里，与步行游览的主要景点距离较远，可能影响步行体验。",
+        "晚餐地点未提供具体地址，且未说明与行程的衔接，可能影响行程顺畅性。"
+      ],
+      "error_type": null
+    }
+  ]
+}

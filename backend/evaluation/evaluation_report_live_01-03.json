@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-09-07T04:30:01.410085+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 15951.33,
+  "p95_latency_ms": 17459,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 90.0,
+  "category_stats": {
+    "normal": {
+      "total_cases": 3,
+      "passed_cases": 3,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "normal_001",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": true,
+      "semantic_score": 90.0,
+      "latency_ms": 15282,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "a90b2aba3f86",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "normal_002",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 17459,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "afffec9ef8de",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "normal_003",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 15113,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "f3c9100208f6",
+      "review_level": "B",
+      "issues": [
+        "餐饮安排中有早餐在麦当劳，与用户对广州地道美食的偏好略有出入，但整体餐饮以本地特色为主，影响不大。"
+      ],
+      "error_type": null
+    }
+  ]
+}

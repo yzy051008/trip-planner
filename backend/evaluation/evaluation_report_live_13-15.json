@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-09-07T04:36:32.041270+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 21013.0,
+  "p95_latency_ms": 29349,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 85.0,
+  "category_stats": {
+    "duration": {
+      "total_cases": 1,
+      "passed_cases": 1,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    },
+    "traveler": {
+      "total_cases": 2,
+      "passed_cases": 2,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "duration_003",
+      "category": "duration",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 29349,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "9b7a76770ae8",
+      "review_level": "B",
+      "issues": [
+        "行程中多次重复安排同一家餐厅和景点（如陶陶居、大鸽饭、味食家、广州塔等），可能导致体验重复，建议适当增加多样性。",
+        "第5天和第6天的行程较为松散，景点以快餐和重复餐厅为主，缺乏深度体验，可考虑增加文化或休闲活动。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "traveler_001",
+      "category": "traveler",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 17479,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "62ce2458e9ec",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "traveler_002",
+      "category": "traveler",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 80.0,
+      "latency_ms": 16211,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "4af550ddf609",
+      "review_level": "B",
+      "issues": [
+        "第2天行程安排北京环球度假区，但只有半天时间，且距离市区较远，可能无法充分游玩，与整体美食主题关联较弱",
+        "第2天晚餐时间安排较晚，若从环球度假区返回市区可能较赶"
+      ],
+      "error_type": null
+    }
+  ]
+}

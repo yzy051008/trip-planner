@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-09-07T04:43:19.802974+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 16395.0,
+  "p95_latency_ms": 17063,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 85.0,
+  "category_stats": {
+    "free_text": {
+      "total_cases": 2,
+      "passed_cases": 2,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    },
+    "preference": {
+      "total_cases": 1,
+      "passed_cases": 1,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "preference_004",
+      "category": "preference",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 16713,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "d51d5c0430b1",
+      "review_level": "B",
+      "issues": [
+        "计划中包含了与历史文化偏好不直接相关的地质博物馆，但整体仍以历史文化为主，可接受。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "free_text_001",
+      "category": "free_text",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 17063,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "b46fc6ee2f79",
+      "review_level": "B",
+      "issues": [
+        "景点集中度一般：第一天上海博物馆与外滩、福州路距离较近，但第二天田子坊与普陀区文化馆相距较远，且酒店位于郊区，可能增加交通时间与步行量，与'少走路、景点集中'的偏好部分不符。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "free_text_002",
+      "category": "free_text",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 15409,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "0095b5dbf323",
+      "review_level": "B",
+      "issues": [
+        "第2天行程包含八达岭长城和天坛公园，且需从长城返回市区，可能节奏较紧，未能完全体现“每天不要安排太多景点”的要求",
+        "第2天住宿地点在八达岭附近，但下午又返回市区游览天坛，交通安排不够合理，可能增加往返时间"
+      ],
+      "error_type": null
+    }
+  ]
+}

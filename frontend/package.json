@@ -1,0 +1,27 @@
+{
+  "name": "trip-planner-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "test": "vitest run",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
+    "ant-design-vue": "^4.2.6",
+    "axios": "^1.7.9",
+    "dayjs": "^1.11.13",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.6.2",
+    "typescript": "^5.7.3",
+    "vite": "^4.5.5",
+    "vue-tsc": "^2.2.0",
+    "vitest": "^0.34.6"
+  }
+}

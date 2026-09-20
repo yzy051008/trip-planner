@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-09-07T04:40:17.535937+00:00",
+  "total_cases": 3,
+  "passed_cases": 2,
+  "failed_cases": 1,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.5,
+  "average_latency_ms": 22668.67,
+  "p95_latency_ms": 28306,
+  "average_retry_count": 1.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 78.33,
+  "category_stats": {
+    "budget": {
+      "total_cases": 3,
+      "passed_cases": 2,
+      "failed_cases": 1,
+      "pass_rate": 0.6667
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "budget_003",
+      "category": "budget",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": true,
+      "semantic_score": 90.0,
+      "latency_ms": 20570,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "a1247d119c7f",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "budget_004",
+      "category": "budget",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": true,
+      "budget_expected": true,
+      "semantic_score": 80.0,
+      "latency_ms": 19130,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "10c9a7aa2383",
+      "review_level": "B",
+      "issues": [
+        "行程首日仅安排室内电玩娱乐，与用户'城市游'偏好略有偏差，城市观光元素不足。",
+        "三日行程中两晚酒店位于不同区域，且第三日酒店距离西涌约50公里，公共交通往返耗时较长，节奏较赶。",
+        "预算按5人计算人均约970元，在1800元/人上限内，但餐饮和交通合计偏高，建议控制以提升性价比。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "budget_005",
+      "category": "budget",
+      "passed": false,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": false,
+      "budget_configured": true,
+      "budget_expected": false,
+      "semantic_score": 65.0,
+      "latency_ms": 28306,
+      "retry_count": 3,
+      "llm_call_count": null,
+      "trace_id": "f82ee62a9c29",
+      "review_level": "C",
+      "issues": [
+        "人均预算超过容差上限 225 元",
+        "计划中的酒店位于距市中心约60公里的石化地区，而行程所有景点均在市中心且要求全程步行，酒店与行程严重脱节，不符合步行交通方式。",
+        "住宿类型虽为经济型酒店，但位置不合理，且整体建议中也承认应选择市中心酒店，说明计划存在明显矛盾。",
+        "用户未提出预算限制，但计划中总预算225元对单人单日旅行合理，不构成问题。"
+      ],
+      "error_type": null
+    }
+  ]
+}

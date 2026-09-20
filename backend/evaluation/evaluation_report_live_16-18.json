@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-09-07T04:38:28.166545+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 1.0,
+  "average_latency_ms": 24916.0,
+  "p95_latency_ms": 33213,
+  "average_retry_count": 0.33,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 85.0,
+  "category_stats": {
+    "budget": {
+      "total_cases": 2,
+      "passed_cases": 2,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    },
+    "traveler": {
+      "total_cases": 1,
+      "passed_cases": 1,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "traveler_003",
+      "category": "traveler",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 24562,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "9fdb370e6f8f",
+      "review_level": "B",
+      "issues": [
+        "行程中夜景相关安排仅包含平安金融中心云际观光层，且建议傍晚前往，但未明确安排夜间观赏夜景的环节，可能未能完全满足用户对夜景的偏好。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "budget_001",
+      "category": "budget",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": true,
+      "budget_expected": true,
+      "semantic_score": 85.0,
+      "latency_ms": 16973,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "d3ee8869a4d8",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "budget_002",
+      "category": "budget",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": true,
+      "budget_expected": true,
+      "semantic_score": 85.0,
+      "latency_ms": 33213,
+      "retry_count": 1,
+      "llm_call_count": null,
+      "trace_id": "8c4d2f33558d",
+      "review_level": "B",
+      "issues": [
+        "行程中多处提到公共交通但未具体说明交通方式，且预算中交通费用估算可能偏低；人均预算为1260元，未超过1500元上限。"
+      ],
+      "error_type": null
+    }
+  ]
+}

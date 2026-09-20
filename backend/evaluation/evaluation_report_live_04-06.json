@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-09-07T04:31:47.757500+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 21660.0,
+  "p95_latency_ms": 27173,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 85.0,
+  "category_stats": {
+    "normal": {
+      "total_cases": 3,
+      "passed_cases": 3,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "normal_004",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 27173,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "b5ef8f394046",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "normal_005",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 26962,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "9506dfdbb4d4",
+      "review_level": "B",
+      "issues": [
+        "行程高度集中于购物，文化体验和休闲活动相对较少，但用户偏好为购物，因此基本满足。"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "normal_006",
+      "category": "normal",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 10845,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "f5c4299ced52",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    }
+  ]
+}

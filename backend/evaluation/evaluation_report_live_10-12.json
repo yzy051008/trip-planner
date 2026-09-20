@@ -1,0 +1,89 @@
+{
+  "generated_at": "2026-09-07T04:34:47.644278+00:00",
+  "total_cases": 3,
+  "passed_cases": 3,
+  "failed_cases": 0,
+  "valid_plan_rate": 1.0,
+  "hard_constraint_pass_rate": 1.0,
+  "budget_pass_rate": 0.0,
+  "average_latency_ms": 15793.0,
+  "p95_latency_ms": 19524,
+  "average_retry_count": 0.0,
+  "final_failure_rate": 0.0,
+  "average_semantic_score": 86.67,
+  "category_stats": {
+    "city": {
+      "total_cases": 1,
+      "passed_cases": 1,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    },
+    "duration": {
+      "total_cases": 2,
+      "passed_cases": 2,
+      "failed_cases": 0,
+      "pass_rate": 1.0
+    }
+  },
+  "error_counts": {},
+  "cases": [
+    {
+      "case_id": "city_004",
+      "category": "city",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 90.0,
+      "latency_ms": 19524,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "18ba83346f07",
+      "review_level": "A",
+      "issues": [],
+      "error_type": null
+    },
+    {
+      "case_id": "duration_001",
+      "category": "duration",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 12172,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "7461a928a0c0",
+      "review_level": "B",
+      "issues": [
+        "酒店距离景点约30公里，与步行交通方式不符，可能影响行程节奏"
+      ],
+      "error_type": null
+    },
+    {
+      "case_id": "duration_002",
+      "category": "duration",
+      "passed": true,
+      "valid_plan": true,
+      "hard_rule_passed": true,
+      "budget_passed": true,
+      "budget_configured": false,
+      "budget_expected": null,
+      "semantic_score": 85.0,
+      "latency_ms": 15683,
+      "retry_count": 0,
+      "llm_call_count": null,
+      "trace_id": "c5e90ee381c0",
+      "review_level": "B",
+      "issues": [
+        "交通方式为公共交通，但未详细说明每日具体的换乘路线或所需时间"
+      ],
+      "error_type": null
+    }
+  ]
+}
