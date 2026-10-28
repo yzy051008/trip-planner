@@ -37,6 +37,51 @@ def test_agent_graph_does_not_contain_fallback_node(monkeypatch):
     assert not hasattr(planner, "_fallback_plan")
 
 
+def test_agent_collects_data_and_transport_for_three_destinations():
+    from app.agents.trip_planner_agent import MultiAgentTripPlanner
+    from app.models.schemas import CityRequest, Location, POIInfo, WeatherInfo
+
+    class FakeAmap:
+        def search_poi(self, keywords, city):
+            return [POIInfo(
+                id=city,
+                name=f"{city}景点",
+                type="景点",
+                address=f"{city}地址",
+                location=Location(longitude=121.4, latitude=31.2),
+            )]
+
+        def get_weather(self, city, start_date, end_date):
+            return [WeatherInfo(date=start_date, day_weather="晴")]
+
+        def plan_route(self, origin, destination, **kwargs):
+            return {"duration": 3600, "cost": 100}
+
+    class FakeRag:
+        def get_knowledge_attractions(self, city):
+            return []
+
+    request = TripRequest(
+        destinations=[
+            CityRequest(city="上海", start_date="2026-10-01", end_date="2026-10-02"),
+            CityRequest(city="杭州", start_date="2026-10-02", end_date="2026-10-03"),
+            CityRequest(city="南京", start_date="2026-10-03", end_date="2026-10-04"),
+        ],
+        transportation="公共交通",
+        accommodation="酒店",
+    )
+    planner = MultiAgentTripPlanner(llm=object(), amap_service=FakeAmap(), rag_service=FakeRag())
+    state = {"request": request, "trace_id": "trace-multi"}
+
+    state.update(planner._search_attractions(state))
+    state.update(planner._get_weather(state))
+    state.update(planner._search_hotels(state))
+    state.update(planner._search_intercity_transport(state))
+
+    assert [item["city"] for item in state["city_data"]] == ["上海", "杭州", "南京"]
+    assert len(state["transport_data"]) == 2
+
+
 def test_agent_parses_structured_llm_json():
     from app.agents.trip_planner_agent import MultiAgentTripPlanner
 

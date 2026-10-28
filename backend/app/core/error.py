@@ -22,6 +22,26 @@ class BizException(Exception):
         super().__init__(detail)
 
 
+class ExternalServiceError(BizException):
+    """可安全返回给客户端的外部服务错误。"""
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        service: str,
+        operation: str,
+        trace_id: str,
+        retry_count: int = 0,
+        error_code: str = "EXTERNAL_SERVICE_ERROR",
+    ):
+        self.service = service
+        self.operation = operation
+        self.trace_id = trace_id
+        self.retry_count = retry_count
+        super().__init__(detail, status_code=503, error_code=error_code)
+
+
 def _trace_id(request: Request) -> str:
     return getattr(request.state, "trace_id", None) or new_trace_id()
 
@@ -32,6 +52,25 @@ async def biz_exception_handler(request: Request, exc: BizException):
     logger.warning(
         "business_error trace_id=%s status_code=%s error_code=%s path=%s",
         trace_id, exc.status_code, exc.error_code, request.url.path,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": exc.detail,
+            "error_code": exc.error_code,
+            "trace_id": trace_id,
+        },
+    )
+
+
+async def external_service_exception_handler(request: Request, exc: ExternalServiceError):
+    """将外部依赖失败转换为不暴露原始响应的统一错误。"""
+    trace_id = exc.trace_id or _trace_id(request)
+    logger.warning(
+        "external_service_error trace_id=%s service=%s operation=%s "
+        "retry_count=%s error_code=%s",
+        trace_id, exc.service, exc.operation, exc.retry_count, exc.error_code,
     )
     return JSONResponse(
         status_code=exc.status_code,

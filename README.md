@@ -28,7 +28,8 @@
 
 ## 核心功能
 
-- 根据城市、日期、人数、交通、住宿、预算和偏好生成旅行计划
+- 根据一个或多个城市、分段日期、人数、交通、住宿、预算和偏好生成旅行计划
+- 使用 `CityRequest`、`CitySegment` 和 `TransportSegment` 组织多城市行程
 - 调用高德地图 POI 和天气接口获取外部信息
 - 使用本地 Chroma 知识库检索城市知识和历史行程
 - 根据景点坐标展示路线地图，并在地图 Key 不可用时降级为路线卡片
@@ -37,6 +38,7 @@
 - 对偏好、节奏和交通住宿匹配度进行语义审查
 - 审查不通过时携带反馈重新生成，最多重试 3 次
 - 保存历史行程，并支持历史行程检索
+- 支持 Redis 保存临时规划草稿，用户确认后才写入历史行程
 - 使用 `trace_id` 串联一次请求中的 API、Agent 节点和外部服务日志
 - 数据库保存或 RAG 同步失败时降级，不影响已生成的核心行程返回
 - 提供离线 Mock 评测和 Live 评测脚本
@@ -48,20 +50,22 @@ flowchart TD
     A[Vue 用户界面] --> B[FastAPI API]
     B --> C[生成 trace_id]
     C --> D[LangGraph 工作流]
-    D --> E[高德 POI 查询]
-    D --> F[天气查询]
-    D --> G[酒店查询]
-    D --> H[Chroma RAG 检索]
-    E --> I[结构化行程生成]
-    F --> I
-    G --> I
-    H --> I
-    I --> J[Pydantic 结构校验]
-    J --> K[硬规则校验]
-    K --> L[语义审查]
-    L -->|通过| M[返回并保存行程]
-    L -->|不通过| I
-    M --> N[历史行程 RAG 同步]
+    D --> E[按城市查询 POI]
+    D --> F[按城市查询天气]
+    D --> G[按城市查询酒店]
+    D --> H[查询相邻城市交通]
+    D --> I[Chroma RAG 检索]
+    E --> J[结构化行程生成]
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    J --> K[Pydantic 结构校验]
+    K --> L[硬规则校验]
+    L --> M[语义审查]
+    M -->|通过| N[返回并保存行程]
+    M -->|不通过| J
+    N --> O[历史行程 RAG 同步]
 ```
 
 ## Agent 工作流说明
@@ -70,13 +74,14 @@ flowchart TD
 
 外部能力由工作流节点直接调用：
 
-1. `search_attractions` 调用高德 POI 服务获取景点
-2. `get_weather` 获取天气信息
-3. `search_hotels` 获取酒店信息
-4. RAG 服务补充城市知识和历史行程上下文
-5. `generate_trip_plan` 将检索结果和用户需求交给 LLM
-6. `review_trip_plan` 执行硬规则检查和语义审查
-7. 审查失败时将反馈写回状态，重新生成计划
+1. `search_attractions` 按城市调用高德 POI 服务获取景点
+2. `get_weather` 按城市和分段日期获取天气信息
+3. `search_hotels` 按城市获取酒店信息
+4. `search_intercity_transport` 查询相邻城市之间的交通
+5. RAG 服务补充城市知识和历史行程上下文
+6. `generate_trip_plan` 将检索结果和用户需求交给 LLM，输出 `segments[]`
+7. `review_trip_plan` 执行跨城市硬规则检查和语义审查
+8. 审查失败时将反馈写回状态，重新生成计划
 
 这种设计的优点是调用顺序和关键参数由程序控制，流程更容易预测和测试；代价是模型不能自主选择工具。后续可以将部分外部能力改造成原生 Tool Calling，以比较两种架构的差异。
 
@@ -157,6 +162,16 @@ cp .env.example .env
 
 根据实际使用的服务填写 `LLM_API_KEY`、`LLM_BASE_URL` 和 `AMAP_API_KEY`。如果不配置 Embedding，RAG 功能会自动禁用，不影响基本行程生成流程。
 
+临时规划会话建议使用 Redis。启动 Redis 后，在 `backend/.env` 中配置：
+
+```dotenv
+PLANNING_SESSION_STORE=redis
+REDIS_URL=redis://localhost:6379/0
+PLANNING_SESSION_TTL_SECONDS=7200
+```
+
+草稿只保存在 Redis 中并按 TTL 自动过期；用户点击确认后，最终计划才写入数据库。未配置 Redis 时默认使用进程内内存存储，适合测试和本地快速调试，不适合多进程部署。
+
 ### 2. 安装并启动后端
 
 ```bash
@@ -200,6 +215,24 @@ npm run dev
 | `GET` | `/api/poi/photo` | 获取景点图片 |
 
 所有请求会生成 `trace_id`，并通过响应头 `X-Trace-Id` 返回。错误响应包含 `message`、`error_code` 和 `trace_id`，便于定位问题。
+
+### 多城市请求示例
+
+```json
+{
+  "destinations": [
+    {"city": "上海", "start_date": "2026-10-01", "end_date": "2026-10-03"},
+    {"city": "杭州", "start_date": "2026-10-03", "end_date": "2026-10-05"}
+  ],
+  "transportation": "公共交通",
+  "accommodation": "经济型酒店",
+  "preferences": ["历史文化", "美食"],
+  "traveler_count": 1,
+  "budget_limit": 3000
+}
+```
+
+响应中的 `data.segments` 与请求城市顺序一致，每个 Segment 保存该城市的日期、每日计划、天气和到达该城市的跨城交通。
 
 ## 评测
 
@@ -250,6 +283,10 @@ python -m evaluation.run_evaluation --live --case-delay 1
 - 计划审查失败时最多重试 3 次，避免无限循环
 - 每个请求生成唯一 `trace_id`
 - 记录 Agent 节点开始、完成、失败和耗时
+- 高德接口使用连接、读取、写入和连接池超时配置
+- 超时、连接错误、限流和指定 5xx 最多重试 2 次，并使用指数退避
+- 鉴权、参数和其他 4xx 错误不重复请求
+- 核心高德数据重试耗尽后返回 `AMAP_TIMEOUT` 或 `AMAP_UNAVAILABLE` 等统一错误
 - 数据库历史保存失败时只记录日志，仍返回行程
 - RAG 检索或同步失败时降级，不覆盖核心结果
 - API 参数错误、业务错误和未捕获异常使用统一错误结构

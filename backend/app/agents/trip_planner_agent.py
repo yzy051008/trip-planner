@@ -23,6 +23,7 @@ from ..models.schemas import (
     POIInfo,
     TripPlan,
     TripRequest,
+    TransportSegment,
     WeatherInfo,
     ReviewResult,
 )
@@ -39,58 +40,30 @@ def budget_passes_limit(total_budget: int, traveler_count: int, budget_limit: in
     return total_budget / traveler_count <= budget_limit * BUDGET_TOLERANCE
 
 
-PLANNER_SYSTEM_PROMPT = """你是专业的行程规划专家。根据用户提供的景点、天气和酒店信息, 生成详细的旅行计划。
+PLANNER_SYSTEM_PROMPT = """你是专业的行程规划专家。根据用户提供的多个城市片段、景点、天气、酒店和城市间交通信息, 生成详细的旅行计划。
 
 **输出要求:**
 必须只输出一个 JSON 对象, 不要输出任何其他文字, JSON 结构严格如下:
 {{
-  "city": "城市名称",
-  "start_date": "YYYY-MM-DD",
-  "end_date": "YYYY-MM-DD",
-  "days": [
+  "segments": [
     {{
-      "date": "YYYY-MM-DD",
-      "day_index": 0,
-      "description": "第1天行程概述",
-      "transportation": "交通方式",
-      "accommodation": "住宿类型",
-      "hotel": {{
-        "name": "酒店名称",
-        "address": "酒店地址",
-        "location": {{"longitude": 116.397128, "latitude": 39.916527}},
-        "price_range": "300-500元",
-        "rating": "4.5",
-        "distance": "距离景点2公里",
-        "type": "经济型酒店",
-        "estimated_cost": 400
-      }},
-      "attractions": [
+      "city": "城市名称",
+      "start_date": "YYYY-MM-DD",
+      "end_date": "YYYY-MM-DD",
+      "transport_from_previous": null,
+      "days": [
         {{
-          "name": "景点名称",
-          "address": "详细地址",
-          "location": {{"longitude": 116.397128, "latitude": 39.916527}},
-          "visit_duration": 120,
-          "description": "景点详细描述",
-          "category": "景点类别",
-          "ticket_price": 60
+          "date": "YYYY-MM-DD",
+          "day_index": 0,
+          "description": "当天行程概述",
+          "transportation": "交通方式",
+          "accommodation": "住宿类型",
+          "hotel": {{"name": "酒店名称", "address": "酒店地址", "price_range": "300-500元", "estimated_cost": 400}},
+          "attractions": [],
+          "meals": []
         }}
       ],
-      "meals": [
-        {{"type": "breakfast", "name": "早餐推荐", "description": "早餐描述", "estimated_cost": 30}},
-        {{"type": "lunch", "name": "午餐推荐", "description": "午餐描述", "estimated_cost": 50}},
-        {{"type": "dinner", "name": "晚餐推荐", "description": "晚餐描述", "estimated_cost": 80}}
-      ]
-    }}
-  ],
-  "weather_info": [
-    {{
-      "date": "YYYY-MM-DD",
-      "day_weather": "晴",
-      "night_weather": "多云",
-      "day_temp": 25,
-      "night_temp": 15,
-      "wind_direction": "南风",
-      "wind_power": "1-3级"
+      "weather_info": []
     }}
   ],
   "overall_suggestions": "总体建议",
@@ -104,12 +77,13 @@ PLANNER_SYSTEM_PROMPT = """你是专业的行程规划专家。根据用户提�
 }}
 
 **规则:**
-1. 每天安排2-3个景点, 考虑景点之间的距离和游览时间
-2. 每天必须包含早中晚三餐(breakfast/lunch/dinner)
-3. 每天推荐一个具体的酒店(从提供的酒店信息中选择)
-4. weather_info 中按日期填入对应天气；没有天气数据的日期保留“暂无预报”，不得编造天气
-5. 景点的经纬度坐标必须使用提供的真实坐标
-6. 所有费用字段填写合理估算值, budget 为各项费用汇总
+1. segments 必须按照用户请求的城市顺序生成, 每个城市单独一个 segment
+2. 每天安排2-3个景点, 考虑景点之间的距离和游览时间
+3. 每天必须包含早中晚三餐(breakfast/lunch/dinner)
+4. 每天推荐一个具体的酒店(从当前城市提供的酒店信息中选择)
+5. 当前城市的 weather_info 中按日期填入对应天气；没有天气数据的日期保留“暂无预报”，不得编造天气
+6. 景点的经纬度坐标必须使用提供的真实坐标
+7. 所有费用字段填写合理估算值, budget 为所有城市各项费用汇总
 """
 
 
@@ -117,14 +91,15 @@ PLANNER_SYSTEM_PROMPT = """你是专业的行程规划专家。根据用户提�
 class GraphState(TypedDict, total=False):
     trace_id: str
     request: TripRequest
-    attraction_pois: list[POIInfo]
-    weather_info: list[WeatherInfo]
-    hotel_pois: list[POIInfo]
+    city_data: list[dict]
+    transport_data: list[TransportSegment]
     trip_plan: TripPlan
     retry_count: int
     max_retries: int
     review_result: ReviewResult
     review_feedback: str
+    current_draft: TripPlan
+    conversation_context: str
 
 
 @dataclass
@@ -136,7 +111,7 @@ class PlanningResult:
 def calculate_budget(plan: TripPlan, request: TripRequest) -> Budget:
     """根据行程明细统一计算多人旅行的总预算。"""
     travelers = request.traveler_count
-    nights = max(request.travel_days - 1, 0)
+    nights = max(request.travel_days - len(request.destinations), 0)
     rooms = ceil(travelers / 2)
     attractions = sum(
         attraction.ticket_price for day in plan.days for attraction in day.attractions
@@ -152,6 +127,11 @@ def calculate_budget(plan: TripPlan, request: TripRequest) -> Budget:
     )
     hotels = hotel_per_night * nights * rooms
     transportation = 50 * request.travel_days * travelers
+    intercity_transport = sum(
+        segment.estimated_cost for segment in plan.segments
+        if segment.transport_from_previous
+    ) * travelers
+    transportation += intercity_transport
     return Budget(
         total_attractions=attractions,
         total_hotels=hotels,
@@ -164,30 +144,50 @@ def calculate_budget(plan: TripPlan, request: TripRequest) -> Budget:
 def validate_trip_plan_hard_rules(plan: TripPlan, request: TripRequest) -> list[str]:
     """检查不应交给 LLM 判断的结构、日期和预算硬约束。"""
     issues: list[str] = []
-    if plan.city != request.city:
-        issues.append(f"目的地城市不匹配，应为{request.city}")
-    if plan.start_date != request.start_date or plan.end_date != request.end_date:
-        issues.append("计划日期与用户请求不匹配")
-    if len(plan.days) != request.travel_days:
+    expected_cities = [destination.city for destination in request.destinations]
+    actual_cities = [segment.city for segment in plan.segments]
+    if actual_cities != expected_cities:
+        issues.append(f"目的地城市顺序或数量不匹配，应为{expected_cities}")
+
+    actual_unique_dates = {day.date for segment in plan.segments for day in segment.days}
+    if len(actual_unique_dates) != request.travel_days:
         issues.append(f"行程天数不匹配，应为{request.travel_days}天")
 
-    expected_date = date.fromisoformat(request.start_date)
-    for index, day in enumerate(plan.days):
-        if day.date != (expected_date + timedelta(days=index)).isoformat():
-            issues.append(f"第{index + 1}天日期不连续")
-        if not day.attractions:
-            issues.append(f"第{index + 1}天没有景点")
-        if day.hotel is None:
-            issues.append(f"第{index + 1}天没有住宿")
-        meal_types = {meal.type for meal in day.meals}
-        missing_meals = {"breakfast", "lunch", "dinner"} - meal_types
-        if missing_meals:
-            issues.append(f"第{index + 1}天餐饮安排不完整")
-        for attraction in day.attractions:
-            if not attraction.name or not attraction.address:
-                issues.append(f"第{index + 1}天存在景点信息不完整")
-            if not attraction.location:
-                issues.append(f"第{index + 1}天存在景点坐标缺失")
+    for index, destination in enumerate(request.destinations):
+        if index >= len(plan.segments):
+            issues.append(f"缺少{destination.city}的行程片段")
+            continue
+        segment = plan.segments[index]
+        if segment.start_date != destination.start_date or segment.end_date != destination.end_date:
+            issues.append(f"{destination.city}片段日期与用户请求不匹配")
+        expected_start = date.fromisoformat(destination.start_date)
+        expected_end = date.fromisoformat(destination.end_date)
+        expected_days = (expected_end - expected_start).days + 1
+        if len(segment.days) != expected_days:
+            issues.append(f"{destination.city}行程天数不匹配，应为{expected_days}天")
+        for day_index, day in enumerate(segment.days):
+            expected_date = expected_start + timedelta(days=day_index)
+            if day.date != expected_date.isoformat():
+                issues.append(f"{destination.city}第{day_index + 1}天日期不连续")
+            if not day.attractions:
+                issues.append(f"{destination.city}第{day_index + 1}天没有景点")
+            if day.hotel is None:
+                issues.append(f"{destination.city}第{day_index + 1}天没有住宿")
+            meal_types = {meal.type for meal in day.meals}
+            missing_meals = {"breakfast", "lunch", "dinner"} - meal_types
+            if missing_meals:
+                issues.append(f"{destination.city}第{day_index + 1}天餐饮安排不完整")
+            for attraction in day.attractions:
+                if not attraction.name or not attraction.address:
+                    issues.append(f"{destination.city}第{day_index + 1}天存在景点信息不完整")
+                if not attraction.location:
+                    issues.append(f"{destination.city}第{day_index + 1}天存在景点坐标缺失")
+
+    for previous, current in zip(plan.segments, plan.segments[1:]):
+        previous_end = date.fromisoformat(previous.end_date)
+        current_start = date.fromisoformat(current.start_date)
+        if current_start not in (previous_end, previous_end + timedelta(days=1)):
+            issues.append(f"{previous.city}与{current.city}之间的日期不连续")
 
     if request.budget_limit is not None:
         budget = calculate_budget(plan, request)
@@ -251,45 +251,78 @@ class MultiAgentTripPlanner:
         trace_id = state.get("trace_id", "unknown")
         with self._logged_node("search_attractions", trace_id):
             self.amap_service.trace_id = trace_id
-            keywords = request.preferences[0] if request.preferences else "景点"
-            pois = self.amap_service.search_poi(keywords, request.city)
-            try:
-                known_names = {poi.name for poi in pois if poi.name}
-                for name in self._get_rag_service().get_knowledge_attractions(request.city):
-                    if any(name in current_name for current_name in known_names):
-                        continue
-                    knowledge_pois = self.amap_service.search_poi(name, request.city)
-                    if knowledge_pois:
-                        pois.append(knowledge_pois[0])
-                        known_names.add(knowledge_pois[0].name)
-            except Exception as exc:
-                logger.exception(
-                    "rag_retrieve_failed trace_id=%s error_type=%s",
-                    trace_id, type(exc).__name__,
+            city_data = []
+            for destination in request.destinations:
+                keywords = destination.preferences[0] if destination.preferences else (
+                    request.preferences[0] if request.preferences else "景点"
                 )
-            return {"attraction_pois": pois}
+                pois = self.amap_service.search_poi(keywords, destination.city)
+                try:
+                    known_names = {poi.name for poi in pois if poi.name}
+                    for name in self._get_rag_service().get_knowledge_attractions(destination.city):
+                        if any(name in current_name for current_name in known_names):
+                            continue
+                        knowledge_pois = self.amap_service.search_poi(name, destination.city)
+                        if knowledge_pois:
+                            pois.append(knowledge_pois[0])
+                            known_names.add(knowledge_pois[0].name)
+                except Exception as exc:
+                    logger.exception(
+                        "rag_retrieve_failed trace_id=%s city=%s error_type=%s",
+                        trace_id, destination.city, type(exc).__name__,
+                    )
+                city_data.append({"city": destination.city, "attraction_pois": pois})
+            return {"city_data": city_data}
 
     def _get_weather(self, state: GraphState) -> dict:
         with self._logged_node("get_weather", state.get("trace_id", "unknown")):
             self.amap_service.trace_id = state.get("trace_id", "unknown")
             request = state["request"]
-            if hasattr(request, "start_date") and hasattr(request, "end_date"):
-                weather = self.amap_service.get_weather(
-                    request.city, request.start_date, request.end_date
-                )
-            else:
+            city_data = list(state.get("city_data", []))
+            if not hasattr(request, "destinations"):
                 weather = self.amap_service.get_weather(request.city)
-            return {"weather_info": weather}
+                return {"weather_info": weather}
+            for item, destination in zip(city_data, request.destinations):
+                item["weather_info"] = self.amap_service.get_weather(
+                    destination.city, destination.start_date, destination.end_date
+                )
+            return {"city_data": city_data}
 
     def _search_hotels(self, state: GraphState) -> dict:
         request = state["request"]
         with self._logged_node("search_hotels", state.get("trace_id", "unknown")):
             self.amap_service.trace_id = state.get("trace_id", "unknown")
-            return {
-                "hotel_pois": self.amap_service.search_poi(
-                    request.accommodation, request.city
+            city_data = list(state.get("city_data", []))
+            for item, destination in zip(city_data, request.destinations):
+                item["hotel_pois"] = self.amap_service.search_poi(
+                    request.accommodation, destination.city
                 )
-            }
+            return {"city_data": city_data}
+
+    def _search_intercity_transport(self, state: GraphState) -> dict:
+        request = state["request"]
+        trace_id = state.get("trace_id", "unknown")
+        with self._logged_node("search_intercity_transport", trace_id):
+            self.amap_service.trace_id = trace_id
+            transport_data = []
+            for previous, current in zip(request.destinations, request.destinations[1:]):
+                route = self.amap_service.plan_route(
+                    previous.city,
+                    current.city,
+                    origin_city=previous.city,
+                    destination_city=current.city,
+                    route_type="transit" if request.transportation == "公共交通" else "driving",
+                )
+                transport_data.append(
+                    TransportSegment(
+                        from_city=previous.city,
+                        to_city=current.city,
+                        method=request.transportation,
+                        estimated_cost=int(route.get("cost", 0)),
+                        duration_minutes=int(route.get("duration", 0)) // 60,
+                    )
+                )
+            return {"transport_data": transport_data}
 
     def _generate_trip_plan(self, state: GraphState) -> dict:
         request = state["request"]
@@ -440,12 +473,14 @@ class MultiAgentTripPlanner:
         graph.add_node("search_attractions", self._search_attractions)
         graph.add_node("get_weather", self._get_weather)
         graph.add_node("search_hotels", self._search_hotels)
+        graph.add_node("search_intercity_transport", self._search_intercity_transport)
         graph.add_node("generate_trip_plan", self._generate_trip_plan)
         graph.add_node("review_trip_plan", self._review_trip_plan)
         graph.add_edge(START, "search_attractions")
         graph.add_edge("search_attractions", "get_weather")
         graph.add_edge("get_weather", "search_hotels")
-        graph.add_edge("search_hotels", "generate_trip_plan")
+        graph.add_edge("search_hotels", "search_intercity_transport")
+        graph.add_edge("search_intercity_transport", "generate_trip_plan")
         graph.add_edge("generate_trip_plan", "review_trip_plan")
         graph.add_conditional_edges(
             "review_trip_plan",
@@ -454,30 +489,37 @@ class MultiAgentTripPlanner:
         )
         return graph.compile()
 
-    def plan_trip(self, request: TripRequest, trace_id: str | None = None) -> PlanningResult:
+    def plan_trip(
+        self,
+        request: TripRequest,
+        trace_id: str | None = None,
+        current_draft: TripPlan | None = None,
+        conversation_context: str = "",
+    ) -> PlanningResult:
         result = self.graph.invoke({
             "request": request,
             "trace_id": trace_id or "unknown",
             "retry_count": 0,
             "max_retries": 3,
+            "current_draft": current_draft,
+            "conversation_context": conversation_context,
         })
         trip_plan = result["trip_plan"]
 
-        if result.get("weather_info"):
-            trip_plan.weather_info = result["weather_info"]
         trip_plan = self._ensure_budget(trip_plan, request)
 
         try:
             rag = self._get_rag_service()
-            for day in trip_plan.days:
-                for attraction in day.attractions:
-                    detail = rag.get_attraction_rag_text(
-                        attraction.name, trip_plan.city
-                    )
-                    if detail:
-                        attraction.description = (
-                            f"{attraction.description}\n\n——知识库参考——\n{detail}"
+            for segment in trip_plan.segments:
+                for day in segment.days:
+                    for attraction in day.attractions:
+                        detail = rag.get_attraction_rag_text(
+                            attraction.name, segment.city
                         )
+                        if detail:
+                            attraction.description = (
+                                f"{attraction.description}\n\n——知识库参考——\n{detail}"
+                            )
         except Exception as exc:
             logger.exception(
                 "rag_history_enrichment_failed trace_id=%s error_type=%s",
@@ -496,6 +538,7 @@ class MultiAgentTripPlanner:
                 "search_attractions",
                 "get_weather",
                 "search_hotels",
+                "search_intercity_transport",
                 "generate_trip_plan",
                 "review_trip_plan",
             ],
@@ -513,27 +556,45 @@ class MultiAgentTripPlanner:
         return TripPlan.model_validate(json.loads(content[start : end + 1]))
 
     def _build_planner_query(self, request: TripRequest, state: GraphState) -> str:
-        attraction_text = self._pois_to_text(state.get("attraction_pois", []))
-        hotel_text = self._pois_to_text(state.get("hotel_pois", []))
-        weather_text = self._weather_to_text(state.get("weather_info", []))
-        query = f"""请为以下旅行需求生成{request.city}的{request.travel_days}天行程计划：
+        city_blocks = []
+        city_data = state.get("city_data", [])
+        if not city_data and state.get("attraction_pois") is not None:
+            city_data = [{
+                "city": request.city,
+                "attraction_pois": state.get("attraction_pois", []),
+                "weather_info": state.get("weather_info", []),
+                "hotel_pois": state.get("hotel_pois", []),
+            }]
+        for item, destination in zip(city_data, request.destinations):
+            city_blocks.append(f"""城市：{destination.city}
+日期：{destination.start_date} 至 {destination.end_date}
+天数：{(date.fromisoformat(destination.end_date) - date.fromisoformat(destination.start_date)).days + 1}天
+可选景点：
+{self._pois_to_text(item.get('attraction_pois', [])) or '无'}
 
-城市：{request.city}
-日期：{request.start_date} 至 {request.end_date}
-天数：{request.travel_days}天
+天气信息：
+{self._weather_to_text(item.get('weather_info', [])) or '无'}
+
+可选酒店：
+{self._pois_to_text(item.get('hotel_pois', [])) or '无'}""")
+        transport_text = "\n".join(
+            f"{item.from_city} -> {item.to_city} | 方式: {item.method} | "
+            f"耗时: {item.duration_minutes}分钟 | 费用: {item.estimated_cost}元"
+            for item in state.get("transport_data", [])
+        )
+        city_text = "\n\n".join(city_blocks)
+        query = f"""请为以下多城市旅行需求生成完整行程计划：
+
+城市片段数据：
+{city_text or '无'}
+
+城市间交通：
+{transport_text or '无跨城交通'}
+
 出行人数：{request.traveler_count}人
 交通方式：{request.transportation}
 住宿偏好：{request.accommodation}
 旅行偏好：{', '.join(request.preferences) if request.preferences else '无'}
-
-可选景点：
-{attraction_text or '无'}
-
-天气信息：
-{weather_text or '无'}
-
-可选酒店：
-{hotel_text or '无'}
 """
         if request.budget_limit is not None:
             query += (
@@ -542,6 +603,13 @@ class MultiAgentTripPlanner:
             )
         if request.free_text_input:
             query += f"\n额外要求：{request.free_text_input}\n"
+        if state.get("current_draft"):
+            query += (
+                "\n当前临时计划（请在保留未被修改约束的前提下重新规划完整计划）：\n"
+                f"{state['current_draft'].model_dump_json()}\n"
+            )
+        if state.get("conversation_context"):
+            query += f"\n当前会话中的关键对话：\n{state['conversation_context']}\n"
         if state.get("review_feedback"):
             query += f"\n上一次审查反馈，请优先修正：{state['review_feedback']}\n"
         try:

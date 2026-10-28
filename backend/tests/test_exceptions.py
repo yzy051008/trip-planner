@@ -2,7 +2,13 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from app.core.error import BizException, biz_exception_handler, global_exception_handler
+from app.core.error import (
+    BizException,
+    ExternalServiceError,
+    biz_exception_handler,
+    external_service_exception_handler,
+    global_exception_handler,
+)
 
 
 def test_biz_exception_returns_custom_status_and_message():
@@ -40,3 +46,29 @@ def test_unknown_exception_returns_standard_500_response():
     assert body["error_code"] == "INTERNAL_SERVER_ERROR"
     assert body["trace_id"]
     assert "测试异常" not in body["message"]
+
+
+def test_external_service_error_returns_retryable_503_response():
+    app = FastAPI()
+    app.add_exception_handler(ExternalServiceError, external_service_exception_handler)
+
+    @app.get("/amap")
+    def amap_failure():
+        raise ExternalServiceError(
+            "高德接口请求超时",
+            service="amap",
+            operation="get_weather",
+            trace_id="trace-amap",
+            retry_count=2,
+            error_code="AMAP_TIMEOUT",
+        )
+
+    response = TestClient(app).get("/amap")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "success": False,
+        "message": "高德接口请求超时",
+        "error_code": "AMAP_TIMEOUT",
+        "trace_id": "trace-amap",
+    }

@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import httpx
+import pytest
 
 from app.api.routes import poi
 
@@ -191,3 +193,85 @@ def test_amap_get_logs_external_call(caplog):
         and "trace-amap" in record.getMessage()
         for record in caplog.records
     )
+
+
+def test_amap_get_retries_read_timeout_then_succeeds(monkeypatch):
+    from app.services.amap_service import AmapService
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": "1", "pois": []}
+
+    calls = {"count": 0}
+
+    class Client:
+        def get(self, *args, **kwargs):
+            calls["count"] += 1
+            if calls["count"] < 3:
+                raise httpx.ReadTimeout("temporary timeout")
+            return Response()
+
+    service = object.__new__(AmapService)
+    service.client = Client()
+    service.api_key = "test-key"
+    service.max_retries = 2
+    service.sleep = lambda _: None
+    service._wait_for_rate_limit = lambda: None
+
+    result = service._get("/v3/place/text", {"keywords": "测试"}, trace_id="trace-retry")
+
+    assert result == {"status": "1", "pois": []}
+    assert calls["count"] == 3
+
+
+def test_amap_get_does_not_retry_authentication_error(monkeypatch):
+    from app.services.amap_service import AmapService
+
+    request = httpx.Request("GET", "https://example.com")
+    response = httpx.Response(401, request=request)
+    calls = {"count": 0}
+
+    class Client:
+        def get(self, *args, **kwargs):
+            calls["count"] += 1
+            return response
+
+    service = object.__new__(AmapService)
+    service.client = Client()
+    service.api_key = "test-key"
+    service.max_retries = 2
+    service.sleep = lambda _: None
+    service._wait_for_rate_limit = lambda: None
+
+    with pytest.raises(Exception):
+        service._get("/v3/place/text", {"keywords": "测试"}, trace_id="trace-auth")
+
+    assert calls["count"] == 1
+
+
+def test_amap_get_raises_structured_timeout_after_retry_budget():
+    from app.core.error import ExternalServiceError
+    from app.services.amap_service import AmapService
+
+    class Client:
+        def get(self, *args, **kwargs):
+            raise httpx.ConnectTimeout("unavailable")
+
+    service = object.__new__(AmapService)
+    service.client = Client()
+    service.api_key = "test-key"
+    service.max_retries = 2
+    service.sleep = lambda _: None
+    service._wait_for_rate_limit = lambda: None
+
+    with pytest.raises(ExternalServiceError) as error:
+        service._get("/v3/weather/weatherInfo", {"city": "110000"}, trace_id="trace-timeout")
+
+    assert error.value.error_code == "AMAP_TIMEOUT"
+    assert error.value.retry_count == 2
+    assert error.value.trace_id == "trace-timeout"

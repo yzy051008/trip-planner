@@ -1,6 +1,8 @@
 from app.models.schemas import (
     Attraction,
     Budget,
+    CityRequest,
+    CitySegment,
     DayPlan,
     Location,
     Meal,
@@ -55,3 +57,47 @@ def test_trip_request_has_reference_validation_rules():
     )
 
     assert request.preferences == []
+
+
+def test_planning_session_contracts_support_draft_versions_and_turn_types():
+    from app.models.schemas import PlanningSessionResponse, PlanningTurnResponse
+
+    response = PlanningSessionResponse(
+        session_id="session-1",
+        status="waiting_confirmation",
+        draft_version=1,
+        data=None,
+    )
+    turn = PlanningTurnResponse(
+        type="clarify",
+        message="你希望减少景点还是增加休息时间？",
+        plan_changed=False,
+        requires_confirmation=False,
+    )
+
+    assert response.draft_version == 1
+    assert turn.type == "clarify"
+
+
+def test_trip_request_accepts_multiple_city_destinations():
+    request = TripRequest(
+        destinations=[
+            CityRequest(city="上海", start_date="2026-10-01", end_date="2026-10-03"),
+            CityRequest(city="杭州", start_date="2026-10-03", end_date="2026-10-05"),
+        ],
+        transportation="公共交通",
+        accommodation="经济型酒店",
+    )
+
+    assert [item.city for item in request.destinations] == ["上海", "杭州"]
+
+
+def test_trip_plan_stores_city_segments():
+    segment = CitySegment(
+        city="上海",
+        start_date="2026-10-01",
+        end_date="2026-10-03",
+    )
+    plan = TripPlan(segments=[segment], start_date="2026-10-01", end_date="2026-10-03")
+
+    assert plan.segments[0].city == "上海"

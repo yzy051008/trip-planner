@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ...core.error import BizException
 from ...db.database import get_db
-from ...models.schemas import TripPlan, TripRequest
+from ...models.schemas import TripPlan
 from ...services import history_service
 from ...services.rag_service import get_rag_service
 
@@ -51,6 +51,15 @@ def get_history(record_id: int, db: Session = Depends(get_db)):
             "accommodation": record.accommodation,
             "preferences": json.loads(record.preferences or "[]"),
             "free_text_input": record.free_text_input,
+            "segments": [
+                {
+                    "city": segment.city,
+                    "start_date": segment.start_date,
+                    "end_date": segment.end_date,
+                    "segment_order": segment.segment_order,
+                }
+                for segment in record.segments
+            ],
             "plan": json.loads(record.plan_json),
             "created_at": record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         },
@@ -62,16 +71,7 @@ def update_history(record_id: int, plan: TripPlan, db: Session = Depends(get_db)
     record = history_service.update_trip_record(db, record_id, plan)
     if record is None:
         raise BizException("历史记录不存在", status_code=404)
-    request = TripRequest(
-        city=record.city,
-        start_date=record.start_date,
-        end_date=record.end_date,
-        travel_days=record.travel_days,
-        transportation=record.transportation,
-        accommodation=record.accommodation,
-        preferences=json.loads(record.preferences or "[]"),
-        free_text_input=record.free_text_input,
-    )
+    request = history_service.request_from_record(record)
     get_rag_service().update_history_plan(record.id, request, plan)
     return {"success": True, "message": "更新成功", "id": record.id}
 

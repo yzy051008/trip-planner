@@ -3,11 +3,11 @@
 import json
 from typing import Optional
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from ..db.models import TripRecord
-from ..models.schemas import TripPlan, TripRequest
+from ..db.models import TripRecord, TripSegment
+from ..models.schemas import CityRequest, TripPlan, TripRequest
 
 
 def create_trip_record(db: Session, request: TripRequest, trip_plan: TripPlan) -> TripRecord:
@@ -23,9 +23,61 @@ def create_trip_record(db: Session, request: TripRequest, trip_plan: TripPlan) -
         plan_json=trip_plan.model_dump_json(),
     )
     db.add(record)
+    db.flush()
+    _replace_record_segments(record, trip_plan)
     db.commit()
     db.refresh(record)
     return record
+
+
+def _segment_to_record(segment, segment_order: int) -> TripSegment:
+    return TripSegment(
+        city=segment.city,
+        start_date=segment.start_date,
+        end_date=segment.end_date,
+        segment_order=segment_order,
+        transport_from_previous_json=(
+            segment.transport_from_previous.model_dump_json()
+            if segment.transport_from_previous
+            else None
+        ),
+    )
+
+
+def _replace_record_segments(record: TripRecord, trip_plan: TripPlan) -> None:
+    record.segments.clear()
+    record.segments.extend(
+        _segment_to_record(segment, index)
+        for index, segment in enumerate(trip_plan.segments)
+    )
+
+
+def request_from_record(record: TripRecord) -> TripRequest:
+    """从历史记录重建 RAG 更新所需的多城市请求。"""
+    segments = getattr(record, "segments", [])
+    destinations = [
+        CityRequest(
+            city=segment.city,
+            start_date=segment.start_date,
+            end_date=segment.end_date,
+        )
+        for segment in segments
+    ]
+    if not destinations:
+        destinations = [
+            CityRequest(
+                city=record.city,
+                start_date=record.start_date,
+                end_date=record.end_date,
+            )
+        ]
+    return TripRequest(
+        destinations=destinations,
+        transportation=record.transportation,
+        accommodation=record.accommodation,
+        preferences=json.loads(record.preferences or "[]"),
+        free_text_input=record.free_text_input,
+    )
 
 
 def list_trip_records(
@@ -36,7 +88,16 @@ def list_trip_records(
 ):
     query = select(TripRecord)
     if city:
-        query = query.where(TripRecord.city.contains(city))
+        query = (
+            query.outerjoin(TripSegment, TripSegment.trip_record_id == TripRecord.id)
+            .where(
+                or_(
+                    TripRecord.city.contains(city),
+                    TripSegment.city.contains(city),
+                )
+            )
+            .distinct()
+        )
 
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     records = db.scalars(
@@ -58,6 +119,7 @@ def update_trip_record(
     if record is None:
         return None
     record.plan_json = trip_plan.model_dump_json()
+    _replace_record_segments(record, trip_plan)
     db.commit()
     db.refresh(record)
     return record
@@ -87,8 +149,21 @@ def trip_record_to_summary(record: TripRecord) -> dict:
         "transportation": record.transportation,
         "accommodation": record.accommodation,
         "preferences": json.loads(record.preferences or "[]"),
+        "segments": [
+            {
+                "city": segment.city,
+                "start_date": segment.start_date,
+                "end_date": segment.end_date,
+                "segment_order": segment.segment_order,
+            }
+            for segment in record.segments
+        ],
         "created_at": record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         "attraction_count": sum(
+            len(day.get("attractions", []))
+            for segment in plan.get("segments", [])
+            for day in segment.get("days", [])
+        ) or sum(
             len(day.get("attractions", [])) for day in plan.get("days", [])
         ),
         "budget_total": (plan.get("budget") or {}).get("total", 0),

@@ -8,7 +8,9 @@ from fastapi.responses import Response
 
 from ..core.error import (
     BizException,
+    ExternalServiceError,
     biz_exception_handler,
+    external_service_exception_handler,
     global_exception_handler,
     validation_exception_handler,
 )
@@ -16,6 +18,7 @@ from ..core.logging_config import configure_logging
 from ..core.trace import new_trace_id
 from ..db.database import init_db
 from .routes import history
+from .routes import planning
 from .routes import poi
 from .routes import trip
 
@@ -44,10 +47,12 @@ async def trace_middleware(request: Request, call_next) -> Response:
     return response
 
 app.add_exception_handler(BizException, biz_exception_handler)
+app.add_exception_handler(ExternalServiceError, external_service_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, global_exception_handler)
 
 app.include_router(history.router, prefix="/api")
+app.include_router(planning.router, prefix="/api")
 app.include_router(poi.router, prefix="/api")
 app.include_router(trip.router, prefix="/api")
 

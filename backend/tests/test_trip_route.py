@@ -41,7 +41,7 @@ def test_trip_plan_route_calls_agent_and_returns_plan(monkeypatch):
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert response.json()["id"] > 0
-    assert response.json()["data"]["city"] == "测试城市"
+    assert response.json()["data"]["segments"][0]["city"] == "测试城市"
     assert response.json()["review"]["level"] == "A"
 
 
@@ -69,7 +69,7 @@ def test_history_persistence_failure_still_returns_plan_with_null_id(monkeypatch
 
     assert response.status_code == 200
     assert response.json()["id"] is None
-    assert response.json()["data"]["city"] == "测试城市"
+    assert response.json()["data"]["segments"][0]["city"] == "测试城市"
 
 
 def test_rag_sync_failure_still_returns_persisted_plan(monkeypatch):
@@ -102,4 +102,4 @@ def test_rag_sync_failure_still_returns_persisted_plan(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["id"] == 42
-    assert response.json()["data"]["city"] == "测试城市"
+    assert response.json()["data"]["segments"][0]["city"] == "测试城市"

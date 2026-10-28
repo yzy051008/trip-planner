@@ -32,3 +32,20 @@ def test_init_db_creates_trip_records_table_and_is_idempotent():
         records = db.scalars(select(TripRecord)).all()
         assert len(records) == existing_count + 1
         assert records[-1].city == "北京"
+
+
+def test_init_db_creates_trip_segments_table():
+    init_db()
+    inspector = inspect(engine)
+
+    assert "trip_segments" in inspector.get_table_names()
+    columns = {column["name"] for column in inspector.get_columns("trip_segments")}
+    assert {
+        "id",
+        "trip_record_id",
+        "city",
+        "start_date",
+        "end_date",
+        "segment_order",
+        "transport_from_previous_json",
+    } <= columns

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 import httpx
 
 from ..config import get_settings
+from ..core.error import ExternalServiceError
 from ..models.schemas import Location, POIInfo, WeatherInfo
 
 
@@ -23,7 +24,16 @@ class AmapService:
         self.api_key = settings.amap_api_key
         if not self.api_key:
             raise ValueError("高德地图 API Key 未配置")
-        self.client = httpx.Client(timeout=10)
+        self.client = httpx.Client(
+            timeout=httpx.Timeout(
+                connect=getattr(settings, "amap_connect_timeout", 3.0),
+                read=getattr(settings, "amap_read_timeout", 10.0),
+                write=getattr(settings, "amap_write_timeout", 3.0),
+                pool=getattr(settings, "amap_pool_timeout", 3.0),
+            )
+        )
+        self.max_retries = getattr(settings, "amap_max_retries", 2)
+        self.sleep = time.sleep
         self._photo_cache: Dict[str, tuple[str, float]] = {}
         self._photo_blocked_until = 0.0
         self._rate_limit_lock = threading.Lock()
@@ -42,31 +52,86 @@ class AmapService:
 
     def _get(self, path: str, params: Dict[str, Any], trace_id: str | None = None) -> dict:
         trace_id = trace_id or getattr(self, "trace_id", "unknown")
-        started = time.perf_counter()
         method = path.rsplit("/", 1)[-1]
-        try:
-            self._wait_for_rate_limit()
-            response = self.client.get(
-                f"{AMAP_BASE_URL}{path}",
-                params={**params, "key": self.api_key},
+        max_retries = getattr(self, "max_retries", 2)
+        sleep = getattr(self, "sleep", time.sleep)
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries + 1):
+            started = time.perf_counter()
+            try:
+                self._wait_for_rate_limit()
+                response = self.client.get(
+                    f"{AMAP_BASE_URL}{path}",
+                    params={**params, "key": self.api_key},
+                )
+                status_code = getattr(response, "status_code", 200)
+                if status_code in {429, 500, 502, 503, 504}:
+                    response.raise_for_status()
+                else:
+                    response.raise_for_status()
+                data = response.json()
+                if data.get("status") != "1":
+                    raise ExternalServiceError(
+                        f"高德 API 错误: {data.get('info', '未知错误')}",
+                        service="amap",
+                        operation=method,
+                        trace_id=trace_id,
+                        retry_count=attempt,
+                        error_code="AMAP_BUSINESS_ERROR",
+                    )
+                logger.info(
+                    "external_call_finished trace_id=%s service=amap method=%s "
+                    "attempt=%s elapsed_ms=%s",
+                    trace_id, method, attempt + 1,
+                    round((time.perf_counter() - started) * 1000),
+                )
+                return data
+            except ExternalServiceError:
+                raise
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                status_code = exc.response.status_code if exc.response is not None else None
+                retryable = status_code in {429, 500, 502, 503, 504}
+                if not retryable or attempt >= max_retries:
+                    error_code = "AMAP_RATE_LIMITED" if status_code == 429 else "AMAP_HTTP_ERROR"
+                    raise ExternalServiceError(
+                        "高德服务暂时不可用" if retryable else "高德接口请求失败",
+                        service="amap",
+                        operation=method,
+                        trace_id=trace_id,
+                        retry_count=attempt,
+                        error_code=error_code,
+                    ) from exc
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                last_error = exc
+                if attempt >= max_retries:
+                    code = "AMAP_TIMEOUT" if isinstance(exc, httpx.TimeoutException) else "AMAP_CONNECTION_ERROR"
+                    raise ExternalServiceError(
+                        "高德接口请求超时" if code == "AMAP_TIMEOUT" else "高德服务连接失败",
+                        service="amap",
+                        operation=method,
+                        trace_id=trace_id,
+                        retry_count=attempt,
+                        error_code=code,
+                    ) from exc
+            except Exception as exc:
+                logger.exception(
+                    "external_call_failed trace_id=%s service=amap method=%s "
+                    "elapsed_ms=%s error_type=%s",
+                    trace_id, method, round((time.perf_counter() - started) * 1000),
+                    type(exc).__name__,
+                )
+                raise
+
+            logger.warning(
+                "external_call_retry trace_id=%s service=amap method=%s attempt=%s "
+                "error_type=%s",
+                trace_id, method, attempt + 1, type(last_error).__name__,
             )
-            response.raise_for_status()
-            data = response.json()
-            if data.get("status") != "1":
-                raise ValueError(f"高德 API 错误: {data.get('info', '未知错误')}")
-            logger.info(
-                "external_call_finished trace_id=%s service=amap method=%s elapsed_ms=%s",
-                trace_id, method, round((time.perf_counter() - started) * 1000),
-            )
-            return data
-        except Exception as exc:
-            logger.exception(
-                "external_call_failed trace_id=%s service=amap method=%s "
-                "elapsed_ms=%s error_type=%s",
-                trace_id, method, round((time.perf_counter() - started) * 1000),
-                type(exc).__name__,
-            )
-            raise
+            sleep(0.5 * (2 ** attempt))
+
+        raise RuntimeError(f"高德请求失败: {last_error}")
 
     @staticmethod
     def _parse_location(location: str) -> Location:

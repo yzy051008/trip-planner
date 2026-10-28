@@ -3,14 +3,14 @@ import { onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import TripForm from '@/components/TripForm.vue'
-import { generateTripPlan } from '@/services/api'
+import { createPlanningSession } from '@/services/api'
 import type { TripRequest } from '@/types'
 import { getProgressForElapsed, PROGRESS_STAGES, type ProgressStage } from '@/utils/progress'
 const router = useRouter(); const loading = ref(false)
 const progress = ref(8); const progressStage = ref<ProgressStage>(PROGRESS_STAGES[0]); let progressTimer: ReturnType<typeof setInterval> | undefined; let progressStartedAt = 0
 const startProgress = () => { progressStartedAt = Date.now(); progress.value = 8; progressStage.value = PROGRESS_STAGES[0]; progressTimer = setInterval(() => { const current = getProgressForElapsed(Date.now() - progressStartedAt); progress.value = current.percent; progressStage.value = current.stage }, 500) }
 const stopProgress = () => { if (progressTimer) clearInterval(progressTimer); progressTimer = undefined }
-const submit = async (request: TripRequest) => { loading.value = true; startProgress(); try { const response = await generateTripPlan(request); progress.value = 100; if (!response.data) throw new Error(response.message || '没有返回行程数据'); sessionStorage.setItem('tripPlan', JSON.stringify(response.data)); sessionStorage.setItem('tripReview', JSON.stringify(response.review || null)); sessionStorage.setItem('tripRequest', JSON.stringify(request)); if (response.id) sessionStorage.setItem('tripPlanId', String(response.id)); else sessionStorage.removeItem('tripPlanId'); await new Promise(resolve => setTimeout(resolve, 220)); await router.push('/result') } catch (error: any) { message.error(error.message || '生成旅行计划失败') } finally { stopProgress(); loading.value = false } }
+const submit = async (request: TripRequest) => { loading.value = true; startProgress(); try { const response = await createPlanningSession(request); progress.value = 100; if (!response.data) throw new Error(response.message || '没有返回临时计划'); sessionStorage.setItem('tripPlan', JSON.stringify(response.data)); sessionStorage.setItem('tripReview', JSON.stringify(response.review || null)); sessionStorage.setItem('tripRequest', JSON.stringify(request)); sessionStorage.setItem('tripSessionId', response.session_id); sessionStorage.setItem('tripDraftVersion', String(response.draft_version)); sessionStorage.setItem('tripSessionStatus', response.status); sessionStorage.removeItem('tripPlanId'); await new Promise(resolve => setTimeout(resolve, 220)); await router.push('/result') } catch (error: any) { message.error(error.message || '生成临时计划失败') } finally { stopProgress(); loading.value = false } }
 onUnmounted(stopProgress)
 </script>
 <template>

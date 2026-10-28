@@ -143,7 +143,10 @@ class RagService:
                 [
                     Document(
                         page_content=self._plan_to_text(request, trip_plan),
-                        metadata={"record_id": record_id, "city": request.city},
+                        metadata={
+                            "record_id": record_id,
+                            **self._history_city_metadata(request),
+                        },
                     )
                 ],
                 ids=[self._history_document_id(record_id)],
@@ -164,7 +167,10 @@ class RagService:
                 [
                     Document(
                         page_content=self._plan_to_text(request, trip_plan),
-                        metadata={"record_id": record_id, "city": request.city},
+                        metadata={
+                            "record_id": record_id,
+                            **self._history_city_metadata(request),
+                        },
                     )
                 ],
                 ids=[document_id],
@@ -187,19 +193,60 @@ class RagService:
         return f"history-{record_id}"
 
     @staticmethod
-    def _plan_to_text(request: TripRequest, trip_plan: TripPlan) -> str:
+    def _city_names(request: TripRequest) -> list[str]:
+        destinations = getattr(request, "destinations", None) or []
+        names = [destination.city for destination in destinations if destination.city]
+        if names:
+            return names
+        city = getattr(request, "city", "")
+        return [city] if city else []
+
+    @classmethod
+    def _history_city_metadata(cls, request: TripRequest) -> dict[str, str]:
+        cities = cls._city_names(request)
+        return {
+            "city": cities[0] if cities else "",
+            "cities": ",".join(cities),
+        }
+
+    @classmethod
+    def _plan_to_text(cls, request: TripRequest, trip_plan: TripPlan) -> str:
+        city_names = cls._city_names(request)
+        city_label = "、".join(city_names) or "未知城市"
         lines = [
-            f"{request.city} {request.travel_days}天旅行计划",
+            f"{city_label} {request.travel_days}天旅行计划",
             f"日期: {request.start_date} 至 {request.end_date}",
             f"交通: {request.transportation}, 住宿: {request.accommodation}",
             f"偏好: {','.join(request.preferences) if request.preferences else '无'}",
         ]
-        for day in trip_plan.days:
-            attractions = "、".join(attraction.name for attraction in day.attractions)
-            lines.append(f"第{day.day_index + 1}天: {attractions}")
+
+        segments = getattr(trip_plan, "segments", None) or []
+        if segments:
+            for segment in segments:
+                lines.append(
+                    f"## {segment.city} ({segment.start_date} 至 {segment.end_date})"
+                )
+                if segment.transport_from_previous:
+                    transport = segment.transport_from_previous
+                    lines.append(
+                        f"城市间交通: {transport.from_city}至{transport.to_city} "
+                        f"{transport.method} {transport.duration_minutes}分钟"
+                    )
+                for day in segment.days:
+                    lines.append(cls._day_to_text(day))
+        else:
+            for day in getattr(trip_plan, "days", []) or []:
+                lines.append(cls._day_to_text(day))
         if trip_plan.budget:
             lines.append(f"总预算: {trip_plan.budget.total}元")
         return "\n".join(lines)
+
+    @staticmethod
+    def _day_to_text(day) -> str:
+        attractions = "、".join(attraction.name for attraction in day.attractions)
+        description = f" {day.description}" if day.description else ""
+        attraction_text = f" 景点: {attractions}" if attractions else ""
+        return f"第{day.day_index + 1}天:{description}{attraction_text}"
 
     def retrieve(self, query: str, city: Optional[str] = None, k: int = 3) -> list[str]:
         if not self.enabled:
@@ -223,12 +270,19 @@ class RagService:
     def build_rag_context(self, request: TripRequest, top_k: int = 3) -> str:
         if not self.enabled:
             return ""
+        city_names = self._city_names(request)
+        city_label = "、".join(city_names)
         query = (
-            f"{request.city} {request.travel_days}天旅行 "
+            f"{city_label} {request.travel_days}天旅行 "
             f"{','.join(request.preferences) if request.preferences else ''} "
             f"{request.free_text_input or ''}"
         )
-        chunks = self.retrieve(query, city=request.city, k=top_k)
+        chunks = []
+        for city in city_names:
+            chunks.extend(self.retrieve(query, city=city, k=top_k))
+        if not city_names:
+            chunks.extend(self.retrieve(query, k=top_k))
+        chunks = list(dict.fromkeys(chunks))
         if not chunks:
             return ""
         return (

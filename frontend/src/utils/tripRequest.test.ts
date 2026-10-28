@@ -4,10 +4,7 @@ import { normalizeTripRequest } from './tripRequest'
 describe('normalizeTripRequest', () => {
   it('uses one traveler and omits an empty budget', () => {
     const request = normalizeTripRequest({
-      city: '上海',
-      start_date: '2026-09-01',
-      end_date: '2026-09-03',
-      travel_days: 3,
+      destinations: [{ city: '上海', start_date: '2026-09-01', end_date: '2026-09-03' }],
       transportation: '公共交通',
       accommodation: '舒适型酒店',
       preferences: [],
@@ -22,10 +19,7 @@ describe('normalizeTripRequest', () => {
 
   it('converts traveler count and budget to numbers', () => {
     const request = normalizeTripRequest({
-      city: '上海',
-      start_date: '2026-09-01',
-      end_date: '2026-09-03',
-      travel_days: 3,
+      destinations: [{ city: '上海', start_date: '2026-09-01', end_date: '2026-09-03' }],
       transportation: '公共交通',
       accommodation: '舒适型酒店',
       preferences: [],

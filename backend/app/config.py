@@ -54,10 +54,21 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.7
     llm_timeout: int = 60
 
+    amap_connect_timeout: float = 3.0
+    amap_read_timeout: float = 10.0
+    amap_write_timeout: float = 3.0
+    amap_pool_timeout: float = 3.0
+    amap_max_retries: int = 2
+
     embedding_provider: str = "local"
     local_embedding_model: str = "BAAI/bge-small-zh-v1.5"
     dashscope_api_key: str = ""
     embedding_model: str = "text-embedding-v4"
+
+    # 临时规划会话默认使用内存，生产环境建议在 .env 中显式切换为 Redis。
+    planning_session_store: str = "memory"
+    redis_url: str = "redis://localhost:6379/0"
+    planning_session_ttl_seconds: int = 7200
 
     @field_validator("llm_model", "llm_temperature", "llm_timeout", mode="before")
     @classmethod

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { HistoryDetailResponse, HistoryListResponse, MutationResponse, PhotoResponse, TripPlan, TripPlanResponse, TripRequest } from '@/types'
+import type { HistoryDetailResponse, HistoryListResponse, MutationResponse, PhotoResponse, PlanningConfirmRequest, PlanningMessageRequest, PlanningSessionResponse, PlanningTurnResponse, TripPlan, TripPlanResponse, TripRequest } from '@/types'
 
 const client = axios.create({
   // 开发环境始终走 Vite 代理，避免 localhost/127.0.0.1 跨域和旧 .env 注入值造成 Network Error
@@ -14,6 +14,21 @@ function readableError(error: any, fallback: string): Error {
 
 export async function generateTripPlan(request: TripRequest): Promise<TripPlanResponse> {
   try { return (await client.post<TripPlanResponse>('/api/trip/plan', request)).data } catch (error) { throw readableError(error, '生成旅行计划失败') }
+}
+export async function createPlanningSession(request: TripRequest): Promise<PlanningSessionResponse> {
+  try { return (await client.post<PlanningSessionResponse>('/api/planning/sessions', request)).data } catch (error) { throw readableError(error, '生成临时计划失败') }
+}
+export async function fetchPlanningSession(id: string): Promise<PlanningSessionResponse> {
+  try { return (await client.get<PlanningSessionResponse>(`/api/planning/sessions/${id}`)).data } catch (error) { throw readableError(error, '加载临时计划失败') }
+}
+export async function sendPlanningMessage(id: string, payload: PlanningMessageRequest): Promise<PlanningTurnResponse> {
+  try { return (await client.post<PlanningTurnResponse>(`/api/planning/sessions/${id}/messages`, payload)).data } catch (error) { throw readableError(error, '提交修改需求失败') }
+}
+export async function confirmPlanningSession(id: string, payload: PlanningConfirmRequest): Promise<PlanningSessionResponse> {
+  try { return (await client.post<PlanningSessionResponse>(`/api/planning/sessions/${id}/confirm`, payload)).data } catch (error) { throw readableError(error, '确认计划失败') }
+}
+export async function cancelPlanningSession(id: string): Promise<PlanningSessionResponse> {
+  try { return (await client.delete<PlanningSessionResponse>(`/api/planning/sessions/${id}`)).data } catch (error) { throw readableError(error, '放弃临时计划失败') }
 }
 export async function fetchHistory(page = 1, pageSize = 10, city = ''): Promise<HistoryListResponse> {
   try { return (await client.get<HistoryListResponse>('/api/history', { params: { page, page_size: pageSize, city: city || undefined } })).data } catch (error) { throw readableError(error, '加载历史记录失败') }

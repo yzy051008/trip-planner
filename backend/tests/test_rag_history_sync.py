@@ -44,6 +44,31 @@ def test_add_history_plan_uses_record_id_as_stable_document_id():
     assert isinstance(store.added[0][0][0], Document)
 
 
+def test_add_history_plan_stores_all_segment_cities_in_metadata():
+    store = FakeStore()
+    service = make_service(store)
+    request = SimpleNamespace(
+        destinations=[
+            SimpleNamespace(city="上海"),
+            SimpleNamespace(city="杭州"),
+        ],
+        city="上海",
+        travel_days=3,
+        start_date="2026-09-01",
+        end_date="2026-09-03",
+        transportation="高铁",
+        accommodation="酒店",
+        preferences=[],
+    )
+    plan = SimpleNamespace(segments=[], days=[], budget=None)
+
+    assert service.add_history_plan(13, request, plan) is True
+
+    metadata = store.added[0][0][0].metadata
+    assert metadata["city"] == "上海"
+    assert metadata["cities"] == "上海,杭州"
+
+
 def test_update_history_plan_replaces_existing_stable_document():
     store = FakeStore()
     service = make_service(store)

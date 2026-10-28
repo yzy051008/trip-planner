@@ -33,9 +33,14 @@ class MockAmapService:
             ),
         ]
 
-    def get_weather(self, city: str) -> list[WeatherInfo]:
+    def get_weather(self, city: str, start_date: str | None = None, end_date: str | None = None) -> list[WeatherInfo]:
         self.calls.append(("get_weather", city))
-        return [WeatherInfo(date="2026-10-01", day_weather="晴", night_weather="多云", day_temp=25, night_temp=17)]
+        requested_start = start_date or "2026-10-01"
+        return [WeatherInfo(date=requested_start, day_weather="晴", night_weather="多云", day_temp=25, night_temp=17)]
+
+    def plan_route(self, origin_address: str, destination_address: str, **kwargs) -> dict:
+        self.calls.append(("plan_route", f"{origin_address}->{destination_address}"))
+        return {"distance": 150000, "duration": 3600, "route_type": "transit", "description": "Mock跨城路线"}
 
 
 class MockRagService:
